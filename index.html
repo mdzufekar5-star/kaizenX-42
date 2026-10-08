@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zr kaizenX - 3D Multi-Photo Studio</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN for 3D WebGL Shader Canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Poppins:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            blue: '#3b82f6',
+                            hover: '#2563eb',
+                            bgLight: '#e6eef8',
+                            bgDark: '#121824'
+                        }
+                    },
+                    fontFamily: {
+                        poppins: ['Poppins', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        rajdhani: ['Rajdhani', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #e6eef8;
+            --neu-flat: #e6eef8;
+            --neu-shadow-out: 8px 8px 18px #c1cedd, -8px -8px 18px #ffffff;
+            --neu-shadow-out-sm: 4px 4px 10px #c1cedd, -4px -4px 10px #ffffff;
+            --neu-shadow-in: inset 4px 4px 8px #c1cedd, inset -4px -4px 8px #ffffff;
+            --neu-shadow-in-deep: inset 6px 6px 12px #b6c4d5, inset -6px -6px 12px #ffffff;
+            --text-main: #2d3748;
+            --text-sub: #718096;
+            --border-subtle: rgba(255, 255, 255, 0.7);
+        }
+
+        .dark {
+            --bg-color: #121824;
+            --neu-flat: #121824;
+            --neu-shadow-out: 8px 8px 18px #090c12, -8px -8px 18px #1b2436;
+            --neu-shadow-out-sm: 4px 4px 10px #090c12, -4px -4px 10px #1b2436;
+            --neu-shadow-in: inset 4px 4px 8px #080b10, inset -4px -4px 8px #1c2538;
+            --neu-shadow-in-deep: inset 6px 6px 12px #06080d, inset -6px -6px 12px #1e283d;
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
+            --border-subtle: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Poppins', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        /* Neumorphic UI Shadow Classes */
+        .neu-card {
+            background: var(--neu-flat);
+            box-shadow: var(--neu-shadow-out);
+            border-radius: 28px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .neu-card-sm {
+            background: var(--neu-flat);
+            box-shadow: var(--neu-shadow-out-sm);
+            border-radius: 18px;
+        }
+
+        .neu-inset {
+            background: var(--neu-flat);
+            box-shadow: var(--neu-shadow-in);
+            border-radius: 18px;
+        }
+
+        .neu-inset-deep {
+            background: var(--neu-flat);
+            box-shadow: var(--neu-shadow-in-deep);
+            border-radius: 20px;
+        }
+
+        .neu-button-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.5), 4px 4px 10px #c1cedd;
+            color: #ffffff;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dark .neu-button-primary {
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.5), 4px 4px 10px #090c12;
+        }
+
+        .neu-button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 24px -5px rgba(59, 130, 246, 0.65);
+        }
+
+        .neu-button-primary:active {
+            transform: translateY(1px);
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .toggle-switch-bg {
+            background: var(--neu-flat);
+            box-shadow: var(--neu-shadow-in);
+        }
+
+        /* 3D Liquid Canvas Background */
+        #liquid-bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        /* Toast Popup Notification */
+        #toast-notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #toast-notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-brand-blue selection:text-white">
+
+    <!-- 3D WebGL Liquid Shader Background Canvas -->
+    <canvas id="liquid-bg-canvas"></canvas>
+
+    <!-- Custom Neumorphic Modal Box for Alerts & Confirmations (Replaces alert() / confirm()) -->
+    <div id="custom-modal" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm hidden">
+        <div class="neu-card w-full max-w-sm p-6 space-y-5 text-center transform transition-all scale-100">
+            <div id="modal-icon-container" class="w-16 h-16 neu-inset-deep rounded-full mx-auto flex items-center justify-center text-brand-blue text-2xl">
+                <i id="modal-icon" class="fa-solid fa-circle-info"></i>
+            </div>
+            <div>
+                <h3 id="modal-title" class="font-bold text-base text-slate-800 dark:text-white">Notification</h3>
+                <p id="modal-message" class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">Message details here...</p>
+            </div>
+            <div class="flex items-center justify-center space-x-3 pt-2">
+                <button id="modal-cancel-btn" onclick="closeModal()" class="neu-inset px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 hidden">
+                    CANCEL
+                </button>
+                <button id="modal-confirm-btn" onclick="closeModal()" class="neu-button-primary px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-notification" class="neu-card px-5 py-3 flex items-center space-x-3 text-xs font-bold text-slate-800 dark:text-white border-l-4 border-brand-blue">
+        <div class="w-7 h-7 neu-card-sm flex items-center justify-center text-brand-blue">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <span id="toast-message">Action Completed Successfully!</span>
+    </div>
+
+    <header class="w-full max-w-5xl mx-auto px-4 pt-6 pb-2">
+        <div class="neu-card px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 neu-card-sm flex items-center justify-center text-brand-blue text-xl">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-800 dark:text-white">Zr kaizenX</h1>
+                    <p class="text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-400 uppercase">3D MULTI-PHOTO STUDIO</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <button onclick="toggleTheme()" class="toggle-switch-bg w-14 h-8 rounded-full p-1 flex items-center transition-all duration-300" title="Toggle Theme">
+                    <div id="toggle-circle" class="w-6 h-6 rounded-full bg-brand-blue shadow-md transform translate-x-0 transition-transform duration-300 flex items-center justify-center text-white text-xs">
+                        <i id="toggle-icon" class="fa-solid fa-sun text-[10px]"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-5xl mx-auto px-4 py-6 flex-grow flex flex-col items-center justify-center">
+
+        <!-- LOGIN SCREEN -->
+        <section id="login-screen" class="w-full max-w-md my-auto">
+            <div class="neu-card p-8 flex flex-col items-center text-center space-y-6">
+                
+                <div class="w-24 h-24 neu-inset-deep rounded-full flex items-center justify-center text-brand-blue text-3xl">
+                    <i id="role-avatar-icon" class="fa-solid fa-user-shield"></i>
+                </div>
+
+                <div>
+                    <h2 class="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Zr kaizenX Login</h2>
+                    <p class="text-xs font-medium text-slate-400 dark:text-slate-400 mt-1">Apna Role Chuniye Aur Login Karein</p>
+                </div>
+
+                <!-- Role Selector -->
+                <div class="w-full neu-inset p-1.5 rounded-2xl flex items-center justify-between font-semibold text-xs">
+                    <button type="button" id="role-admin-btn" onclick="setRole('admin')" class="w-1/2 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-2 neu-card text-brand-blue font-bold">
+                        <i class="fa-solid fa-shield"></i>
+                        <span>Admin</span>
+                    </button>
+                    <button type="button" id="role-user-btn" onclick="setRole('user')" class="w-1/2 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-2 text-slate-500 dark:text-slate-400 hover:text-brand-blue">
+                        <i class="fa-solid fa-user"></i>
+                        <span>User</span>
+                    </button>
+                </div>
+
+                <form onsubmit="handleLoginSubmit(event)" class="w-full space-y-4 text-left">
+                    <div>
+                        <label id="username-label" class="block text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">USERNAME</label>
+                        <div class="neu-inset flex items-center px-4 py-3.5 space-x-3">
+                            <i id="username-input-icon" class="fa-solid fa-user text-slate-400"></i>
+                            <input type="text" id="login-username" placeholder="Username..." required class="bg-transparent border-none outline-none text-xs w-full text-slate-800 dark:text-white font-medium placeholder-slate-400">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">PASSWORD</label>
+                        <div class="neu-inset flex items-center px-4 py-3.5 space-x-3">
+                            <i class="fa-solid fa-key text-slate-400"></i>
+                            <input type="password" id="login-password" placeholder="Password..." required class="bg-transparent border-none outline-none text-xs w-full text-slate-800 dark:text-white font-medium placeholder-slate-400">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="neu-button-primary w-full py-4 rounded-2xl font-bold text-xs tracking-wider uppercase flex items-center justify-center space-x-2 mt-6">
+                        <span>LOGIN TO WEBSITE</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+
+            </div>
+        </section>
+
+        <!-- DASHBOARD SCREEN -->
+        <section id="dashboard-screen" class="w-full hidden space-y-6">
+            
+            <!-- Navigation Header -->
+            <div class="neu-card p-4 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <span id="user-badge" class="neu-card-sm px-4 py-2 text-xs font-bold text-brand-blue flex items-center space-x-2">
+                        <i id="user-role-icon" class="fa-solid fa-shield-halved"></i>
+                        <span id="user-display-role">ADMIN MODE</span>
+                    </span>
+
+                    <span id="login-ring-alert-badge" class="hidden neu-inset px-3 py-1.5 text-xs text-amber-500 font-bold animate-pulse flex items-center space-x-2">
+                        <i class="fa-solid fa-bell text-xs"></i>
+                        <span>User Login Ringing!</span>
+                    </span>
+                </div>
+
+                <div class="flex items-center space-x-2 text-xs font-semibold">
+                    <button onclick="switchTab('maps')" id="tab-btn-maps" class="neu-card px-4 py-2.5 text-brand-blue font-bold flex items-center space-x-2">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                        <span>Craftland Maps</span>
+                    </button>
+                    <button onclick="switchTab('favorites')" id="tab-btn-favorites" class="px-4 py-2.5 text-slate-500 hover:text-brand-blue flex items-center space-x-2">
+                        <i class="fa-solid fa-heart text-red-500"></i>
+                        <span>Favorites (<span id="fav-count">0</span>)</span>
+                    </button>
+                    <button onclick="switchTab('admin-panel')" id="tab-btn-admin" class="px-4 py-2.5 text-slate-500 hover:text-brand-blue hidden flex items-center space-x-2">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Admin Panel</span>
+                    </button>
+                    <button onclick="logout()" class="px-3 py-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors" title="Logout">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 1: CRAFTLAND MAP GRID (Public View & Admin Actions) -->
+            <div id="tab-content-maps" class="space-y-6">
+                <div class="flex justify-between items-center px-2">
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-gamepad text-brand-blue"></i>
+                            <span>Free Fire Craftland Maps</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Map dekhein, favorite karein, aur code copy karein!</p>
+                    </div>
+                </div>
+
+                <div id="maps-grid-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+
+                <div id="no-maps-alert" class="hidden neu-card p-12 text-center text-slate-400 space-y-2">
+                    <i class="fa-solid fa-folder-open text-4xl"></i>
+                    <p class="text-sm font-semibold">Abhi koi Craftland map add nahi hai!</p>
+                </div>
+            </div>
+
+            <!-- TAB 2: USER FAVORITES -->
+            <div id="tab-content-favorites" class="space-y-6 hidden">
+                <div class="neu-card p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-4">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-800 dark:text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-heart text-red-500"></i>
+                                <span>Aapke Favorite Maps</span>
+                            </h3>
+                            <p class="text-xs text-slate-400">Aapke save kiye huye Craftland maps</p>
+                        </div>
+                    </div>
+
+                    <div id="favorites-grid-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+                    <div id="no-favs-alert" class="neu-card p-12 text-center text-slate-400 space-y-2">
+                        <i class="fa-solid fa-heart-crack text-4xl"></i>
+                        <p class="text-sm font-semibold">Koyi bhi favorite map bookmarked nahi hai!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: ADMIN PANEL (Upload & Delete Management) -->
+            <div id="tab-content-admin" class="hidden space-y-6">
+                
+                <div class="neu-card p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-4">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-800 dark:text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-shield-halved text-brand-blue"></i>
+                                <span>Admin Management Hub</span>
+                            </h3>
+                            <p class="text-xs text-slate-400">New Craftland map upload karein, ring alerts dekhein, ya maps delete karein.</p>
+                        </div>
+                    </div>
+
+                    <!-- Add New Map Form -->
+                    <form onsubmit="handleAddNewMap(event)" class="space-y-4 pt-2">
+                        <h4 class="font-bold text-xs uppercase text-brand-blue tracking-wider">ADD NEW CRAFTLAND MAP</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">MAP PHOTO</label>
+                                <input type="file" id="admin-map-file" accept="image/*" class="hidden" onchange="previewAdminMapImage(event)" required>
+                                <label for="admin-map-file" class="neu-inset p-3.5 rounded-2xl flex items-center space-x-3 cursor-pointer">
+                                    <div class="w-10 h-10 neu-card rounded-xl flex items-center justify-center text-brand-blue text-lg">
+                                        <i class="fa-solid fa-image"></i>
+                                    </div>
+                                    <span id="admin-file-label" class="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">Choose Map Photo...</span>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">TOP TEXT / MAP TITLE</label>
+                                <div class="neu-inset flex items-center px-4 py-3.5 space-x-3">
+                                    <i class="fa-solid fa-heading text-slate-400"></i>
+                                    <input type="text" id="admin-map-title" placeholder="e.g. 1v1 Craftland Ultra Arena" required class="bg-transparent border-none outline-none text-xs w-full text-slate-800 dark:text-white font-medium">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">TOP BOX DESCRIPTION TEXT</label>
+                            <div class="neu-inset flex items-center px-4 py-3.5 space-x-3">
+                                <i class="fa-solid fa-align-left text-slate-400"></i>
+                                <input type="text" id="admin-map-desc" placeholder="e.g. Mast hai maps, Unlimited Ammo & Gloo Wall" required class="bg-transparent border-none outline-none text-xs w-full text-slate-800 dark:text-white font-medium">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">BOTTOM CRAFTLAND MAP CODE</label>
+                            <div class="neu-inset flex items-center px-4 py-3.5 space-x-3">
+                                <i class="fa-solid fa-code text-slate-400"></i>
+                                <input type="text" id="admin-map-code" placeholder="e.g. #FREEFIRE-8890-KZX-2026" required class="bg-transparent border-none outline-none text-xs w-full text-slate-800 dark:text-white font-medium">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="neu-button-primary w-full py-4 rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>PUBLISH NEW MAP</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Admin Delete & Manage List -->
+                <div class="neu-card p-6 space-y-4">
+                    <h4 class="font-bold text-sm text-slate-800 dark:text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-list-check text-brand-blue"></i>
+                        <span>Manage & Delete Uploaded Maps</span>
+                    </h4>
+
+                    <div id="admin-manage-maps-list" class="space-y-3"></div>
+                </div>
+
+                <!-- Live User Ring Alerts Activity -->
+                <div class="neu-card p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
+                        <h4 class="font-bold text-sm text-slate-800 dark:text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-bell text-amber-500"></i>
+                            <span>Live User Login Activity & Ring Alerts</span>
+                        </h4>
+                        <button onclick="stopRingSound()" class="neu-card-sm px-3.5 py-2 text-xs text-red-500 font-bold flex items-center space-x-2 hover:bg-red-500/10">
+                            <i class="fa-solid fa-bell-slash"></i>
+                            <span>Stop Ring Alarm</span>
+                        </button>
+                    </div>
+
+                    <div id="login-alerts-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        <div class="text-xs text-slate-400 text-center py-4">No user login activities recorded yet.</div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer class="w-full max-w-5xl mx-auto px-4 py-6 text-center text-xs text-slate-400 font-medium">
+        <p>Zr kaizenX &copy; 3D Multi-Photo & Craftland Studio Engine</p>
+    </footer>
+
+    <script>
+        let currentRole = 'admin';
+        let loggedInUser = null;
+        let isDarkMode = false;
+        let adminNewImgData = null;
+        let audioContext = null;
+        let alarmOscillator = null;
+
+        const DEFAULT_MAPS = [
+            {
+                id: 101,
+                title: "Zr kaizenX 1v1 Unlimited Arena",
+                description: "Map Kesa Hai: Mast hai maps, High-speed 1v1 battleground",
+                code: "#FREEFIRE-9920-KZX-01",
+                image: "https://placehold.co/800x450/1e293b/3b82f6?text=Craftland+1v1+Arena"
+            },
+            {
+                id: 102,
+                title: "Zr kaizenX Cyberpunk Rush City",
+                description: "Map Kesa Hai: Ultra HD Craftland design with futuristic buildings",
+                code: "#FREEFIRE-8871-KZX-02",
+                image: "https://placehold.co/800x450/0f172a/00f3ff?text=Cyberpunk+Rush+City"
+            }
+        ];
+
+        let craftlandMaps = [];
+        let userFavorites = [];
+        let loginActivityLogs = [];
+
+        function loadInitialMaps() {
+            try {
+                const stored = localStorage.getItem('zr_kaizenx_maps');
+                if (stored) {
+                    craftlandMaps = JSON.parse(stored);
+                } else {
+                    craftlandMaps = [...DEFAULT_MAPS];
+                    saveMapsToStorage();
+                }
+            } catch (e) {
+                craftlandMaps = [...DEFAULT_MAPS];
+            }
+        }
+
+        function saveMapsToStorage() {
+            try {
+                localStorage.setItem('zr_kaizenx_maps', JSON.stringify(craftlandMaps));
+            } catch (e) {
+                console.warn("Storage quota exceeded or disabled", e);
+            }
+        }
+
+        /* Custom Modal System Replacing alert() and confirm() */
+        function showModal(title, message, isConfirm = false, onConfirmCallback = null) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            
+            if (isConfirm) {
+                cancelBtn.classList.remove('hidden');
+                confirmBtn.onclick = function() {
+                    closeModal();
+                    if (onConfirmCallback) onConfirmCallback();
+                };
+            } else {
+                cancelBtn.classList.add('hidden');
+                confirmBtn.onclick = function() {
+                    closeModal();
+                };
+            }
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            const html = document.documentElement;
+            const circle = document.getElementById('toggle-circle');
+            const icon = document.getElementById('toggle-icon');
+
+            if (isDarkMode) {
+                html.classList.add('dark');
+                circle.style.transform = 'translateX(24px)';
+                icon.className = 'fa-solid fa-moon text-[10px]';
+            } else {
+                html.classList.remove('dark');
+                circle.style.transform = 'translateX(0px)';
+                icon.className = 'fa-solid fa-sun text-[10px]';
+            }
+        }
+
+        function setRole(role) {
+            currentRole = role;
+            const adminBtn = document.getElementById('role-admin-btn');
+            const userBtn = document.getElementById('role-user-btn');
+            const userLabel = document.getElementById('username-label');
+            const userInput = document.getElementById('login-username');
+            const icon = document.getElementById('role-avatar-icon');
+
+            if (role === 'admin') {
+                adminBtn.className = "w-1/2 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-2 neu-card text-brand-blue font-bold";
+                userBtn.className = "w-1/2 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-2 text-slate-500 dark:text-slate-400 hover:text-brand-blue";
+                userLabel.innerText = "USERNAME";
+                userInput.placeholder = "Username...";
+                icon.className = "fa-solid fa-user-shield";
+            } else {
+                userBtn.className = "w-1/2 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-2 neu-card text-brand-blue font-bold";
+                adminBtn.className = "w-1/2 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-2 text-slate-500 dark:text-slate-400 hover:text-brand-blue";
+                userLabel.innerText = "GMAIL / EMAIL";
+                userInput.placeholder = "example@gmail.com";
+                icon.className = "fa-solid fa-user";
+            }
+        }
+
+        /* User Gmail Validation & Authentication Logic */
+        function handleLoginSubmit(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('login-username').value.trim();
+            const passwordInput = document.getElementById('login-password').value.trim();
+
+            if (currentRole === 'admin') {
+                if (usernameInput === 'zr kaizenX' && passwordInput === 'kaizenX 99') {
+                    loggedInUser = { name: usernameInput, role: 'admin' };
+                    launchDashboard();
+                } else {
+                    showModal('Login Error', 'Galat Admin Username ya Password! Kripya sahi credentials daalein.');
+                }
+            } else {
+                // Strict Gmail validation
+                const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+                if (!emailRegex.test(usernameInput)) {
+                    showModal('Invalid Gmail', 'Kripya sahi Gmail Address daalein (e.g. user@gmail.com)!');
+                    return;
+                }
+
+                if (passwordInput.length < 4) {
+                    showModal('Weak Password', 'Password kam se kam 4 characters ka hona chahiye!');
+                    return;
+                }
+
+                // Check stored user passwords
+                let users = {};
+                try {
+                    users = JSON.parse(localStorage.getItem('zr_kaizenx_registered_users') || '{}');
+                } catch(e) { users = {}; }
+
+                if (users[usernameInput]) {
+                    if (users[usernameInput] !== passwordInput) {
+                        showModal('Access Denied', 'Is Gmail ID ka Password Galat hai! Kripya sahi password daalein.');
+                        return;
+                    }
+                } else {
+                    // Save new user credentials
+                    users[usernameInput] = passwordInput;
+                    try {
+                        localStorage.setItem('zr_kaizenx_registered_users', JSON.stringify(users));
+                    } catch(e) {}
+                }
+
+                loggedInUser = { name: usernameInput, role: 'user' };
+                triggerAdminRingAlert(usernameInput);
+                launchDashboard();
+            }
+        }
+
+        /* Web Audio Ring Alarm Trigger */
+        function triggerAdminRingAlert(userEmail) {
+            const timestamp = new Date().toLocaleTimeString();
+            loginActivityLogs.unshift({ email: userEmail, time: timestamp });
+
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                stopRingSound();
+
+                alarmOscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                alarmOscillator.type = 'sawtooth';
+                alarmOscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+
+                alarmOscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                alarmOscillator.start();
+            } catch (err) {
+                console.log("Audio Alert Triggered:", err);
+            }
+
+            document.getElementById('login-ring-alert-badge').classList.remove('hidden');
+            renderAdminActivityLogs();
+        }
+
+        function stopRingSound() {
+            if (alarmOscillator) {
+                try {
+                    alarmOscillator.stop();
+                    alarmOscillator.disconnect();
+                } catch(e) {}
+                alarmOscillator = null;
+            }
+            document.getElementById('login-ring-alert-badge').classList.add('hidden');
+        }
+
+        function renderAdminActivityLogs() {
+            const list = document.getElementById('login-alerts-list');
+            if (loginActivityLogs.length === 0) return;
+
+            list.innerHTML = loginActivityLogs.map(log => `
+                <div class="neu-inset p-3 rounded-xl flex items-center justify-between text-xs font-semibold">
+                    <span class="text-slate-700 dark:text-slate-200 flex items-center space-x-2">
+                        <i class="fa-solid fa-user-tag text-brand-blue"></i>
+                        <span>${log.email}</span>
+                    </span>
+                    <span class="text-[10px] text-amber-500 font-mono">${log.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function launchDashboard() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+
+            const badgeRole = document.getElementById('user-display-role');
+            const adminTabBtn = document.getElementById('tab-btn-admin');
+            const userIcon = document.getElementById('user-role-icon');
+
+            if (loggedInUser.role === 'admin') {
+                badgeRole.innerText = `ADMIN: ${loggedInUser.name}`;
+                adminTabBtn.classList.remove('hidden');
+                userIcon.className = "fa-solid fa-shield-halved";
+            } else {
+                badgeRole.innerText = `USER: ${loggedInUser.name}`;
+                adminTabBtn.classList.add('hidden');
+                userIcon.className = "fa-solid fa-user";
+            }
+
+            renderCraftlandMaps();
+            renderAdminMapManageList();
+        }
+
+        function logout() {
+            stopRingSound();
+            loggedInUser = null;
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+
+        function renderCraftlandMaps() {
+            const container = document.getElementById('maps-grid-container');
+            const noAlert = document.getElementById('no-maps-alert');
+
+            if (craftlandMaps.length === 0) {
+                container.innerHTML = '';
+                noAlert.classList.remove('hidden');
+                return;
+            }
+
+            noAlert.classList.add('hidden');
+            container.innerHTML = craftlandMaps.map(map => {
+                const isFav = userFavorites.some(f => Number(f.id) === Number(map.id));
+                return `
+                <div class="neu-card p-5 space-y-4 flex flex-col justify-between" id="map-card-${map.id}">
+                    <div class="space-y-3">
+                        <div class="neu-inset p-3.5 rounded-2xl flex items-start justify-between">
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-white flex items-center space-x-2">
+                                    <i class="fa-solid fa-map text-brand-blue"></i>
+                                    <span>${map.title}</span>
+                                </h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${map.description}</p>
+                            </div>
+                            <button onclick="toggleFavorite(${map.id})" class="p-2 text-lg hover:scale-110 transition-transform" title="Add to Favorites">
+                                <i class="fa-${isFav ? 'solid text-red-500' : 'regular text-slate-400'} fa-heart"></i>
+                            </button>
+                        </div>
+
+                        <div class="neu-inset-deep p-2 rounded-2xl overflow-hidden">
+                            <img src="${map.image}" alt="${map.title}" class="w-full h-48 object-cover rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50">
+                        </div>
+
+                        <div class="neu-inset p-3 rounded-2xl flex items-center justify-between">
+                            <div class="flex items-center space-x-2 overflow-hidden">
+                                <i class="fa-solid fa-code text-brand-blue text-xs"></i>
+                                <span class="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 truncate">${map.code}</span>
+                            </div>
+                            <button onclick="copyMapCode('${map.code}')" class="neu-button-primary px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 flex-shrink-0">
+                                <i class="fa-solid fa-copy"></i>
+                                <span>COPY</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    ${loggedInUser && loggedInUser.role === 'admin' ? `
+                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                        <button type="button" onclick="executeDeleteMap(${map.id})" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center space-x-1.5 cursor-pointer">
+                            <i class="fa-solid fa-trash"></i>
+                            <span>DELETE MAP</span>
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+            `}).join('');
+        }
+
+        /* Dedicated Map Manage List in Admin Panel Tab */
+        function renderAdminMapManageList() {
+            const list = document.getElementById('admin-manage-maps-list');
+            if (!list) return;
+
+            if (craftlandMaps.length === 0) {
+                list.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">Koi map available nahi hai.</div>`;
+                return;
+            }
+
+            list.innerHTML = craftlandMaps.map(map => `
+                <div class="neu-inset p-3 rounded-2xl flex items-center justify-between space-x-3">
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <img src="${map.image}" class="w-12 h-12 object-cover rounded-xl flex-shrink-0 border border-slate-300 dark:border-slate-700">
+                        <div class="truncate">
+                            <h5 class="text-xs font-bold text-slate-800 dark:text-white truncate">${map.title}</h5>
+                            <p class="text-[10px] font-mono font-semibold text-brand-blue truncate">${map.code}</p>
+                        </div>
+                    </div>
+                    <button onclick="executeDeleteMap(${map.id})" class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[11px] font-bold flex-shrink-0 flex items-center space-x-1">
+                        <i class="fa-solid fa-trash text-[10px]"></i>
+                        <span>DELETE</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        /* Guaranteed Map Deletion Execution */
+        window.executeDeleteMap = function(id) {
+            const numericId = Number(id);
+            const targetMap = craftlandMaps.find(m => Number(m.id) === numericId);
+            const mapTitle = targetMap ? targetMap.title : 'iss map';
+
+            showModal(
+                'Delete Map Confirmation', 
+                `Kya aap "${mapTitle}" ko hamesha (permanently) delete karna chahte hain?`, 
+                true, 
+                function() {
+                    craftlandMaps = craftlandMaps.filter(m => Number(m.id) !== numericId);
+                    userFavorites = userFavorites.filter(f => Number(f.id) !== numericId);
+                    
+                    saveMapsToStorage();
+                    renderCraftlandMaps();
+                    renderFavorites();
+                    renderAdminMapManageList();
+                    showToast('Map permanently delete ho gaya hai!');
+                }
+            );
+        };
+
+        function copyMapCode(code) {
+            const tempInput = document.createElement("input");
+            tempInput.value = code;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+
+            showToast(`Map Code Copied: ${code}`);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function toggleFavorite(mapId) {
+            const numericId = Number(mapId);
+            const index = userFavorites.findIndex(f => Number(f.id) === numericId);
+            if (index > -1) {
+                userFavorites.splice(index, 1);
+            } else {
+                const map = craftlandMaps.find(m => Number(m.id) === numericId);
+                if (map) userFavorites.push(map);
+            }
+            document.getElementById('fav-count').innerText = userFavorites.length;
+            renderCraftlandMaps();
+            renderFavorites();
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('favorites-grid-container');
+            const noFavAlert = document.getElementById('no-favs-alert');
+
+            if (userFavorites.length === 0) {
+                container.innerHTML = '';
+                noFavAlert.classList.remove('hidden');
+                return;
+            }
+
+            noFavAlert.classList.add('hidden');
+            container.innerHTML = userFavorites.map(map => `
+                <div class="neu-card p-4 space-y-3">
+                    <img src="${map.image}" class="w-full h-36 object-cover rounded-xl">
+                    <h5 class="text-xs font-bold text-slate-800 dark:text-white truncate">${map.title}</h5>
+                    <div class="neu-inset p-2.5 rounded-xl flex items-center justify-between">
+                        <span class="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 truncate">${map.code}</span>
+                        <button onclick="copyMapCode('${map.code}')" class="neu-button-primary px-3 py-1 rounded-lg text-[10px] font-bold">
+                            COPY
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function previewAdminMapImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('admin-file-label').innerText = file.name;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                adminNewImgData = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleAddNewMap(e) {
+            e.preventDefault();
+            if (!adminNewImgData) {
+                showModal('Missing Photo', 'Pehle Map ki Photo select karein!');
+                return;
+            }
+
+            const title = document.getElementById('admin-map-title').value.trim();
+            const desc = document.getElementById('admin-map-desc').value.trim();
+            const code = document.getElementById('admin-map-code').value.trim();
+
+            const newMap = {
+                id: Date.now(),
+                title: title,
+                description: `Map Kesa Hai: ${desc}`,
+                code: code,
+                image: adminNewImgData
+            };
+
+            craftlandMaps.unshift(newMap);
+            saveMapsToStorage();
+            
+            renderCraftlandMaps();
+            renderAdminMapManageList();
+
+            e.target.reset();
+            adminNewImgData = null;
+            document.getElementById('admin-file-label').innerText = "Choose Map Photo...";
+
+            showToast('New Craftland Map Published!');
+            switchTab('maps');
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tab-content-maps').classList.add('hidden');
+            document.getElementById('tab-content-favorites').classList.add('hidden');
+            document.getElementById('tab-content-admin').classList.add('hidden');
+
+            document.getElementById('tab-btn-maps').className = "px-4 py-2.5 text-slate-500 hover:text-brand-blue flex items-center space-x-2";
+            document.getElementById('tab-btn-favorites').className = "px-4 py-2.5 text-slate-500 hover:text-brand-blue flex items-center space-x-2";
+            document.getElementById('tab-btn-admin').className = "px-4 py-2.5 text-slate-500 hover:text-brand-blue flex items-center space-x-2";
+
+            if (tab === 'maps') {
+                document.getElementById('tab-content-maps').classList.remove('hidden');
+                document.getElementById('tab-btn-maps').className = "neu-card px-4 py-2.5 text-brand-blue font-bold flex items-center space-x-2";
+            } else if (tab === 'favorites') {
+                document.getElementById('tab-content-favorites').classList.remove('hidden');
+                document.getElementById('tab-btn-favorites').className = "neu-card px-4 py-2.5 text-brand-blue font-bold flex items-center space-x-2";
+            } else if (tab === 'admin-panel') {
+                document.getElementById('tab-content-admin').classList.remove('hidden');
+                document.getElementById('tab-btn-admin').className = "neu-card px-4 py-2.5 text-brand-blue font-bold flex items-center space-x-2";
+            }
+        }
+
+        /* 3D WebGL Liquid Background Shader */
+        function init3DLiquidBackground() {
+            const canvas = document.getElementById('liquid-bg-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: { u_time: { value: 0 } },
+                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`,
+                fragmentShader: `
+                    uniform float u_time;
+                    varying vec2 vUv;
+                    void main() {
+                        vec2 p = vUv * 3.5;
+                        float wave = sin(p.x + u_time * 0.8) + cos(p.y + u_time * 0.8);
+                        gl_FragColor = vec4(0.23, 0.51, 0.96, clamp(wave * 0.08, 0.03, 0.15));
+                    }
+                `,
+                transparent: true
+            });
+
+            const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+            scene.add(plane);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                material.uniforms.u_time.value += 0.015;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        window.onload = function() {
+            loadInitialMaps();
+            init3DLiquidBackground();
+            setRole('admin');
+        };
+    </script>
+</body>
+</html>
